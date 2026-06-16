@@ -1,0 +1,554 @@
+<div class="h-screen flex flex-col bg-gray-50 font-sans">
+
+  <!-- ═══════════════════════════ HEADER ═══════════════════════════════════ -->
+  <header class="bg-blue-900 text-white px-6 py-3 flex items-center justify-between shrink-0 shadow-md">
+    <div>
+      <h1 class="text-xl font-bold tracking-tight">Decisión Core DSS</h1>
+      <p class="text-blue-300 text-xs mt-0.5">IF7200 — Métodos Cuantitativos para la Toma de Decisiones</p>
+    </div>
+    <div class="text-right text-xs text-blue-200">
+      <span class="bg-blue-800 rounded px-2 py-1">PyME Importadora de Repuestos · CRC</span>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════ BODY: sidebar + main ══════════════════════════ -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- ──────────────────── SIDEBAR: Panel de Parámetros ───────────────── -->
+    <aside class="w-72 bg-gray-900 text-gray-100 overflow-y-auto overflow-x-hidden shrink-0 flex flex-col gap-5 p-4">
+
+      <!-- ── Datos Históricos ── -->
+      <section>
+        <h2 class="text-xs uppercase tracking-widest text-blue-400 mb-3 font-semibold">
+          1. Demanda Histórica
+        </h2>
+
+        <!-- Selector de cantidad de períodos -->
+        <div class="mb-3">
+          <label class="text-xs text-gray-400 block mb-1">Número de períodos (mín. 3)</label>
+          <input
+            type="number"
+            [(ngModel)]="numeroPeriodos"
+            min="3"
+            max="60"
+            (change)="ajustarPeriodos()"
+            class="w-full bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500 text-center"
+          />
+        </div>
+
+        <!-- Inputs individuales por período -->
+        <div class="max-h-56 overflow-y-auto overflow-x-hidden flex flex-col gap-1.5">
+          @for (d of demandasPorPeriodo; track $index) {
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-xs text-gray-500 w-14 shrink-0 text-right">
+                P{{ $index + 1 }}
+              </span>
+              <input
+                type="number"
+                [ngModel]="demandasPorPeriodo[$index]"
+                (ngModelChange)="actualizarDemanda($index, $event)"
+                min="0"
+                placeholder="0"
+                class="min-w-0 flex-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- ── Parámetros Financieros ── -->
+      <section>
+        <h2 class="text-xs uppercase tracking-widest text-blue-400 mb-3 font-semibold">
+          2. Parámetros Financieros (CRC)
+        </h2>
+        <div class="grid gap-3">
+
+          <div>
+            <label class="text-xs text-gray-400">Costo unitario (compra)</label>
+            <input type="number" [(ngModel)]="costoUnitario" min="1"
+              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500" />
+          </div>
+
+          <div>
+            <label class="text-xs text-gray-400">Precio de venta</label>
+            <input type="number" [(ngModel)]="precioVenta" min="1"
+              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500" />
+          </div>
+
+          <div>
+            <label class="text-xs text-gray-400">Costo por pedido (orden)</label>
+            <input type="number" [(ngModel)]="costoPorPedido" min="1"
+              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500" />
+          </div>
+
+          <div>
+            <label class="text-xs text-gray-400">Costo de mantener (por unidad)</label>
+            <input type="number" [(ngModel)]="costoMantener" min="1"
+              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500" />
+          </div>
+
+          <div>
+            <label class="text-xs text-gray-400">Costo de ruptura (por unidad)</label>
+            <input type="number" [(ngModel)]="costoRuptura" min="1"
+              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500" />
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Parámetros Logísticos ── -->
+      <section>
+        <h2 class="text-xs uppercase tracking-widest text-blue-400 mb-3 font-semibold">
+          3. Logística
+        </h2>
+        <div class="grid gap-3">
+          <div>
+            <label class="text-xs text-gray-400">Lead time (períodos de reposición)</label>
+            <input type="number" [(ngModel)]="leadTime" min="1" max="12"
+              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500" />
+          </div>
+          <div>
+            <label class="text-xs text-gray-400">Nivel de servicio: {{ pct(nivelServicio * 100) }}</label>
+            <input type="range" [(ngModel)]="nivelServicio" min="0.5" max="0.999" step="0.005"
+              class="w-full mt-1 accent-blue-500" />
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Análisis de Sensibilidad ── -->
+      <section class="bg-gray-800 rounded-lg p-3 border border-blue-800">
+        <h2 class="text-xs uppercase tracking-widest text-blue-400 mb-3 font-semibold">
+          4. Sensibilidad (en vivo)
+        </h2>
+
+        <div class="mb-3">
+          <label class="text-xs text-gray-300 flex justify-between">
+            <span>Factor de incertidumbre</span>
+            <span class="text-blue-400 font-bold">{{ factorIncertidumbre }}×</span>
+          </label>
+          <input type="range" [(ngModel)]="factorIncertidumbre" min="0.5" max="3" step="0.1"
+            (change)="reanalizarSiHayResultados()"
+            class="w-full mt-1 accent-blue-400" />
+          <p class="text-xs text-gray-500 mt-1">Amplifica σ del pronóstico → reanálisis automático</p>
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-300 flex justify-between">
+            <span>Iteraciones Monte Carlo</span>
+            <span class="text-blue-400 font-bold">{{ num(nIteraciones) }}</span>
+          </label>
+          <input type="range" [(ngModel)]="nIteraciones" min="1000" max="50000" step="1000"
+            class="w-full mt-1 accent-blue-400" />
+        </div>
+      </section>
+
+      <!-- ── Botones de Acción ── -->
+      <div class="mt-auto flex flex-col gap-2 pb-2">
+        <button (click)="cargarEjemplo()"
+          class="w-full py-2 text-sm rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors">
+          Cargar ejemplo (repuestos)
+        </button>
+        <button (click)="analizar()" [disabled]="cargando()"
+          class="w-full py-2.5 text-sm font-bold rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white transition-colors shadow">
+          @if (cargando()) {
+            <span class="flex items-center justify-center gap-2">
+              <span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              Analizando...
+            </span>
+          } @else {
+            Analizar
+          }
+        </button>
+      </div>
+    </aside>
+
+    <!-- ──────────────────── MAIN: Panel de Resultados ──────────────────── -->
+    <main class="flex-1 overflow-y-auto p-6">
+
+      <!-- ── Estado inicial ── -->
+      @if (!resultado() && !cargando() && !error()) {
+        <div class="flex items-center justify-center h-full">
+          <div class="text-center max-w-md">
+            <div class="text-6xl mb-4">📊</div>
+            <h2 class="text-2xl font-bold text-gray-700 mb-2">Decisión Core DSS</h2>
+            <p class="text-gray-500 mb-6">
+              Sistema de Soporte a Decisiones que integra pronóstico, optimización de inventario
+              y simulación de riesgo Monte Carlo en una sola cadena lógica.
+            </p>
+            <div class="grid grid-cols-3 gap-3 text-sm text-gray-600">
+              <div class="bg-white rounded-lg p-3 border border-gray-200">
+                <div class="text-blue-600 font-bold mb-1">1. Pronóstico</div>
+                Regresión lineal sobre demanda histórica
+              </div>
+              <div class="bg-white rounded-lg p-3 border border-gray-200">
+                <div class="text-blue-600 font-bold mb-1">2. Inventario</div>
+                EOQ + Stock de Seguridad basado en σ
+              </div>
+              <div class="bg-white rounded-lg p-3 border border-gray-200">
+                <div class="text-blue-600 font-bold mb-1">3. Monte Carlo</div>
+                10,000 escenarios · VaR · Probabilidades
+              </div>
+            </div>
+            <p class="text-gray-400 text-xs mt-6">
+              Cargá los datos de ejemplo o ingresá los tuyos en el panel izquierdo y presioná Analizar.
+            </p>
+          </div>
+        </div>
+      }
+
+      <!-- ── Loading ── -->
+      @if (cargando()) {
+        <div class="flex items-center justify-center h-full">
+          <div class="text-center">
+            <div class="inline-block w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-gray-600 font-medium">Ejecutando simulación Monte Carlo...</p>
+            <p class="text-gray-400 text-sm mt-1">{{ num(nIteraciones) }} iteraciones</p>
+          </div>
+        </div>
+      }
+
+      <!-- ── Error ── -->
+      @if (error()) {
+        <div class="bg-red-50 border border-red-200 rounded-xl p-5 mb-4">
+          <h3 class="text-red-700 font-bold mb-1">Error en el análisis</h3>
+          <p class="text-red-600 text-sm">{{ error() }}</p>
+          @if (error()!.includes('servidor')) {
+            <p class="text-red-500 text-xs mt-2">
+              Verificá que el backend FastAPI esté corriendo: <code class="bg-red-100 px-1 rounded">uvicorn main:app --reload</code> en la carpeta <code class="bg-red-100 px-1 rounded">backend/</code>
+            </p>
+          }
+        </div>
+      }
+
+      <!-- ── Resultados ── -->
+      @if (resultado(); as res) {
+
+        <!-- KPI Cards: panel gerencial superior -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+          <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <p class="text-xs text-gray-400 uppercase tracking-wide">Demanda Pronosticada</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1">{{ num(res.pronostico.demanda_pronosticada) }}</p>
+            <p class="text-xs text-gray-400 mt-1">unidades · período {{ res.pronostico.periodo_pronosticado }}</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <p class="text-xs text-gray-400 uppercase tracking-wide">Lote Óptimo (EOQ)</p>
+            <p class="text-2xl font-bold text-blue-700 mt-1">{{ num(res.inventario.eoq) }}</p>
+            <p class="text-xs text-gray-400 mt-1">+ {{ num(res.inventario.stock_seguridad) }} SS · {{ num(res.inventario.costos.num_pedidos) }} pedidos</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <p class="text-xs text-gray-400 uppercase tracking-wide">Utilidad Esperada A</p>
+            <p class="text-2xl font-bold mt-1" [class.text-green-700]="res.simulacion.escenario_a.media > 0" [class.text-red-600]="res.simulacion.escenario_a.media <= 0">
+              {{ crc(res.simulacion.escenario_a.media) }}
+            </p>
+            <p class="text-xs text-gray-400 mt-1">Éxito: {{ pct(res.simulacion.escenario_a.prob_exito) }} de los escenarios</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <p class="text-xs text-gray-400 uppercase tracking-wide">Utilidad Esperada B</p>
+            <p class="text-2xl font-bold mt-1" [class.text-green-700]="res.simulacion.escenario_b.media > 0" [class.text-red-600]="res.simulacion.escenario_b.media <= 0">
+              {{ crc(res.simulacion.escenario_b.media) }}
+            </p>
+            <p class="text-xs text-gray-400 mt-1">Éxito: {{ pct(res.simulacion.escenario_b.prob_exito) }} de los escenarios</p>
+          </div>
+        </div>
+
+        <!-- Navegación de Tabs -->
+        <div class="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 w-fit">
+          @for (tab of [
+            { id: 'pronostico',  label: 'Pronóstico' },
+            { id: 'inventario',  label: 'Inventario' },
+            { id: 'simulacion',  label: 'Simulación' },
+            { id: 'comparacion', label: 'Comparación' }
+          ]; track tab.id) {
+            <button
+              (click)="cambiarTab(tab.id)"
+              [class]="tabActiva() === tab.id
+                ? 'px-4 py-2 rounded-lg bg-white text-blue-700 font-semibold shadow text-sm'
+                : 'px-4 py-2 rounded-lg text-gray-500 hover:text-gray-700 text-sm transition-colors'"
+            >
+              {{ tab.label }}
+            </button>
+          }
+        </div>
+
+        <!-- ═══════════════════ TAB: PRONÓSTICO ════════════════════════════ -->
+        @if (tabActiva() === 'pronostico') {
+          <div class="grid grid-cols-3 gap-5">
+
+            <!-- Gráfico de regresión -->
+            <div class="col-span-2 bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+              <h3 class="text-sm font-semibold text-gray-700 mb-3">Regresión Lineal — Demanda por Período</h3>
+              <canvas id="canvasRegresion" height="220"></canvas>
+            </div>
+
+            <!-- Métricas del pronóstico -->
+            <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+              <h3 class="text-sm font-semibold text-gray-700 mb-4">Estadísticas del Modelo</h3>
+              <div class="space-y-3">
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-500">R² (ajuste)</span>
+                  <span class="font-semibold" [class.text-green-600]="res.pronostico.r_cuadrado > 0.8" [class.text-yellow-600]="res.pronostico.r_cuadrado <= 0.8">
+                    {{ res.pronostico.r_cuadrado.toFixed(4) }}
+                  </span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-500">Pendiente β₁</span>
+                  <span class="font-semibold">{{ res.pronostico.pendiente.toFixed(2) }} uds/período</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-500">Intercepto β₀</span>
+                  <span class="font-semibold">{{ res.pronostico.intercepto.toFixed(2) }}</span>
+                </div>
+                <hr class="border-gray-100" />
+                <div class="flex justify-between text-sm">
+                  <span class="text-gray-500">σ residuos</span>
+                  <span class="font-bold text-orange-600">{{ res.pronostico.error_estandar.toFixed(2) }} uds</span>
+                </div>
+                <p class="text-xs text-gray-400 bg-orange-50 rounded p-2">
+                  Este σ alimenta el stock de seguridad y la desviación de Monte Carlo.
+                </p>
+                <hr class="border-gray-100" />
+                <div class="bg-blue-50 rounded-lg p-3">
+                  <p class="text-xs text-gray-500">Pronóstico período {{ res.pronostico.periodo_pronosticado }}</p>
+                  <p class="text-2xl font-bold text-blue-700">{{ num(res.pronostico.demanda_pronosticada) }} uds</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        }
+
+        <!-- ═══════════════════ TAB: INVENTARIO ═══════════════════════════ -->
+        @if (tabActiva() === 'inventario') {
+          <div class="grid gap-5">
+
+            <!-- Cards de resultados EOQ -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p class="text-xs text-blue-500 uppercase tracking-wide">EOQ Óptimo</p>
+                <p class="text-3xl font-bold text-blue-800 mt-1">{{ num(res.inventario.eoq) }}</p>
+                <p class="text-xs text-blue-400 mt-1">unidades por pedido</p>
+              </div>
+              <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p class="text-xs text-amber-600 uppercase tracking-wide">Stock de Seguridad</p>
+                <p class="text-3xl font-bold text-amber-700 mt-1">{{ num(res.inventario.stock_seguridad) }}</p>
+                <p class="text-xs text-amber-500 mt-1">nivel servicio {{ pct(res.inventario.nivel_servicio_usado * 100) }}</p>
+              </div>
+              <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+                <p class="text-xs text-green-600 uppercase tracking-wide">Punto de Reorden</p>
+                <p class="text-3xl font-bold text-green-700 mt-1">{{ num(res.inventario.punto_reorden) }}</p>
+                <p class="text-xs text-green-500 mt-1">unidades · lead time {{ res.inventario.lead_time }}p</p>
+              </div>
+              <div class="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                <p class="text-xs text-purple-600 uppercase tracking-wide">Inventario Promedio</p>
+                <p class="text-3xl font-bold text-purple-700 mt-1">{{ num(res.inventario.inventario_promedio) }}</p>
+                <p class="text-xs text-purple-500 mt-1">EOQ/2 + Stock Seguridad</p>
+              </div>
+            </div>
+
+            <!-- Desglose de costos -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div class="px-5 py-3 bg-gray-50 border-b border-gray-200">
+                <h3 class="text-sm font-semibold text-gray-700">Desglose del Costo Total del Sistema</h3>
+                <p class="text-xs text-gray-400 mt-0.5">Fórmula: (D/EOQ)·S + (EOQ/2)·H + D·c</p>
+              </div>
+              <table class="w-full text-sm">
+                <tbody>
+                  <tr class="border-b border-gray-100">
+                    <td class="px-5 py-3 text-gray-600">Costo de ordenar <span class="text-gray-400 text-xs">— (D/EOQ) × S</span></td>
+                    <td class="px-5 py-3 text-right font-medium">{{ crc(res.inventario.costos.costo_ordenar) }}</td>
+                  </tr>
+                  <tr class="border-b border-gray-100 bg-gray-50">
+                    <td class="px-5 py-3 text-gray-600">Costo de mantener <span class="text-gray-400 text-xs">— (EOQ/2) × H</span></td>
+                    <td class="px-5 py-3 text-right font-medium">{{ crc(res.inventario.costos.costo_mantener_total) }}</td>
+                  </tr>
+                  <tr class="border-b border-gray-100">
+                    <td class="px-5 py-3 text-gray-600">Costo de compra <span class="text-gray-400 text-xs">— D × costo_unitario</span></td>
+                    <td class="px-5 py-3 text-right font-medium">{{ crc(res.inventario.costos.costo_compra) }}</td>
+                  </tr>
+                  <tr class="bg-blue-50">
+                    <td class="px-5 py-3 font-bold text-blue-800">COSTO TOTAL DEL PERÍODO</td>
+                    <td class="px-5 py-3 text-right font-bold text-blue-800 text-base">{{ crc(res.inventario.costos.costo_total) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Nota explicativa -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+              <strong>Vínculo pronóstico → inventario:</strong>
+              El error estándar del modelo de regresión (σ = {{ res.pronostico.error_estandar.toFixed(2) }} uds)
+              se usó para calcular el stock de seguridad con nivel de servicio {{ pct(res.inventario.nivel_servicio_usado * 100) }}.
+              Fórmula: SS = Z·σ·√(lead_time) = {{ res.inventario.stock_seguridad.toFixed(1) }} unidades.
+              Este mismo σ define la desviación de la demanda en la simulación Monte Carlo.
+            </div>
+
+          </div>
+        }
+
+        <!-- ═══════════════════ TAB: SIMULACIÓN ═══════════════════════════ -->
+        @if (tabActiva() === 'simulacion') {
+          <div class="grid gap-5">
+
+            <!-- Histogramas lado a lado -->
+            <div class="grid grid-cols-2 gap-5">
+              <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                <canvas id="histogramaA" height="200"></canvas>
+              </div>
+              <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                <canvas id="histogramaB" height="200"></canvas>
+              </div>
+            </div>
+
+            <!-- CDF comparativa -->
+            <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+              <canvas id="graficoCDF" height="120"></canvas>
+            </div>
+
+            <!-- Métricas de los escenarios -->
+            <div class="grid grid-cols-2 gap-5">
+              @for (esc of [
+                { nombre: 'Escenario A — EOQ sin Stock Seguridad', stats: res.simulacion.escenario_a, Q: res.simulacion.Q_a, color: 'blue' },
+                { nombre: 'Escenario B — EOQ + Stock Seguridad',   stats: res.simulacion.escenario_b, Q: res.simulacion.Q_b, color: 'green' }
+              ]; track esc.nombre) {
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                  <div [class]="'px-4 py-3 text-white text-sm font-semibold ' + (esc.color === 'blue' ? 'bg-blue-600' : 'bg-emerald-600')">
+                    {{ esc.nombre }} · Q = {{ num(esc.Q) }} uds
+                  </div>
+                  <div class="p-4 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p class="text-gray-400 text-xs">Utilidad Esperada</p>
+                      <p class="font-bold text-base" [class.text-green-700]="esc.stats.media > 0" [class.text-red-600]="esc.stats.media <= 0">
+                        {{ crc(esc.stats.media) }}
+                      </p>
+                    </div>
+                    <div>
+                      <p class="text-gray-400 text-xs">Desv. Estándar</p>
+                      <p class="font-semibold">{{ crc(esc.stats.desviacion_std) }}</p>
+                    </div>
+                    <div>
+                      <p class="text-gray-400 text-xs">IC 95% inferior</p>
+                      <p class="font-semibold text-xs">{{ crc(esc.stats.ic_95_inferior) }}</p>
+                    </div>
+                    <div>
+                      <p class="text-gray-400 text-xs">IC 95% superior</p>
+                      <p class="font-semibold text-xs">{{ crc(esc.stats.ic_95_superior) }}</p>
+                    </div>
+                    <div>
+                      <p class="text-gray-400 text-xs">VaR al 95%</p>
+                      <p class="font-bold text-red-600">{{ crc(esc.stats.var_95) }}</p>
+                    </div>
+                    <div>
+                      <p class="text-gray-400 text-xs">Prob. Éxito</p>
+                      <p class="font-bold text-green-600">{{ pct(esc.stats.prob_exito) }}</p>
+                    </div>
+                    <div>
+                      <p class="text-gray-400 text-xs">Prob. Ruptura</p>
+                      <p class="font-bold text-red-500">{{ pct(esc.stats.prob_ruptura) }}</p>
+                    </div>
+                    <div>
+                      <p class="text-gray-400 text-xs">Mediana</p>
+                      <p class="font-semibold">{{ crc(esc.stats.mediana) }}</p>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Parámetros de la simulación -->
+            <div class="bg-gray-50 rounded-xl p-4 border border-gray-200 text-xs text-gray-500">
+              Simulación con <strong>{{ num(res.simulacion.n_iteraciones) }} iteraciones</strong> ·
+              Demanda ~ Normal(μ={{ num(res.pronostico.demanda_pronosticada) }}, σ={{ res.simulacion.sigma_usada }}) ·
+              Factor incertidumbre: {{ factorIncertidumbre }}× ·
+              Semilla: 42 (reproducible)
+            </div>
+
+          </div>
+        }
+
+        <!-- ═══════════════════ TAB: COMPARACIÓN ══════════════════════════ -->
+        @if (tabActiva() === 'comparacion') {
+          <div class="grid gap-5">
+
+            <!-- Tabla comparativa -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div class="px-5 py-3 bg-gray-50 border-b border-gray-200">
+                <h3 class="text-sm font-semibold text-gray-700">Tabla Comparativa de Escenarios</h3>
+              </div>
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                    <th class="px-5 py-3 text-left">Métrica</th>
+                    <th class="px-5 py-3 text-right">Escenario A (EOQ)</th>
+                    <th class="px-5 py-3 text-right">Escenario B (EOQ+SS)</th>
+                    <th class="px-5 py-3 text-center">Mejor</th>
+                    <th class="px-5 py-3 text-left">Nota</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (fila of res.comparacion.tabla; track fila.metrica; let par = $even) {
+                    <tr [class]="par ? 'bg-gray-50' : 'bg-white'" class="border-t border-gray-100">
+                      <td class="px-5 py-3 font-medium text-gray-700">{{ fila.metrica }}</td>
+                      <td class="px-5 py-3 text-right" [class.font-bold]="fila.mejor === 'A'" [class.text-blue-700]="fila.mejor === 'A'">
+                        @if (fila.metrica.includes('CRC') || fila.metrica.includes('Utilidad') || fila.metrica.includes('VaR')) {
+                          {{ crc(fila.escenario_a) }}
+                        } @else if (fila.metrica.includes('%')) {
+                          {{ pct(fila.escenario_a) }}
+                        } @else {
+                          {{ num(fila.escenario_a) }}
+                        }
+                      </td>
+                      <td class="px-5 py-3 text-right" [class.font-bold]="fila.mejor === 'B'" [class.text-emerald-700]="fila.mejor === 'B'">
+                        @if (fila.metrica.includes('CRC') || fila.metrica.includes('Utilidad') || fila.metrica.includes('VaR')) {
+                          {{ crc(fila.escenario_b) }}
+                        } @else if (fila.metrica.includes('%')) {
+                          {{ pct(fila.escenario_b) }}
+                        } @else {
+                          {{ num(fila.escenario_b) }}
+                        }
+                      </td>
+                      <td class="px-5 py-3 text-center">
+                        <span [class]="fila.mejor === 'A'
+                          ? 'bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 text-xs font-bold'
+                          : 'bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5 text-xs font-bold'">
+                          {{ fila.mejor }}
+                        </span>
+                      </td>
+                      <td class="px-5 py-3 text-xs text-gray-400">{{ fila.nota }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Recomendación gerencial -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-5">
+              <h3 class="text-blue-800 font-bold text-base mb-2">Recomendación Gerencial</h3>
+              <p class="text-blue-700 text-sm leading-relaxed">{{ res.comparacion.recomendacion }}</p>
+            </div>
+
+            <!-- Resumen de los 3 módulos -->
+            <div class="grid grid-cols-3 gap-4 text-sm">
+              <div class="bg-white rounded-xl p-4 border border-gray-200">
+                <p class="font-semibold text-gray-700 mb-2">Pronóstico</p>
+                <p class="text-gray-500 text-xs">Período {{ res.pronostico.periodo_pronosticado }}: <strong>{{ num(res.pronostico.demanda_pronosticada) }} uds</strong></p>
+                <p class="text-gray-500 text-xs">R² = {{ res.pronostico.r_cuadrado.toFixed(3) }} · σ = {{ res.pronostico.error_estandar.toFixed(1) }} uds</p>
+              </div>
+              <div class="bg-white rounded-xl p-4 border border-gray-200">
+                <p class="font-semibold text-gray-700 mb-2">Inventario</p>
+                <p class="text-gray-500 text-xs">EOQ = <strong>{{ num(res.inventario.eoq) }} uds</strong></p>
+                <p class="text-gray-500 text-xs">SS = {{ num(res.inventario.stock_seguridad) }} · ROP = {{ num(res.inventario.punto_reorden) }}</p>
+              </div>
+              <div class="bg-white rounded-xl p-4 border border-gray-200">
+                <p class="font-semibold text-gray-700 mb-2">Monte Carlo</p>
+                <p class="text-gray-500 text-xs">{{ num(res.simulacion.n_iteraciones) }} iteraciones · σ efectiva = {{ res.simulacion.sigma_usada }}</p>
+                <p class="text-gray-500 text-xs">VaR A: {{ crc(res.simulacion.escenario_a.var_95) }}</p>
+              </div>
+            </div>
+
+          </div>
+        }
+
+      } <!-- fin @if resultado() -->
+
+    </main>
+  </div>
+</div>

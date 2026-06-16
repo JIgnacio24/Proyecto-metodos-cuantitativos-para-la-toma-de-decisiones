@@ -1,0 +1,16 @@
+/* Estilos locales del Dashboard — la mayoría del diseño usa Tailwind directamente */
+
+/* Transición suave en los textos grandes de KPI */
+.text-2xl, .text-3xl {
+  transition: color 0.2s ease;
+}
+
+/* Altura personalizada para el body del sidebar para que los botones queden abajo */
+aside {
+  min-height: 0;
+}
+
+/* Asegura que los canvas de Chart.js no desborden su contenedor */
+canvas {
+  max-width: 100%;
+}
