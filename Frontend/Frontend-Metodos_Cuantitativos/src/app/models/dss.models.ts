@@ -71,8 +71,8 @@ export interface CDFData {
 }
 
 export interface SimulacionResult {
-  Q_a: number;
-  Q_b: number;
+  S_a: number;
+  S_b: number;
   sigma_usada: number;
   n_iteraciones: number;
   escenario_a: EstadisticasEscenario;

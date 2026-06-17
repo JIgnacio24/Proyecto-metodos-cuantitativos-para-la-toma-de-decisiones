@@ -171,10 +171,11 @@ def analizar_completo(params: ParametrosAnalisis):
       Calcula el stock de seguridad usando σ del paso 1.
       → Aquí está el primer vínculo entre pronóstico e inventario.
 
-    PASO 3 — SIMULACIÓN MONTE CARLO:
+    PASO 3 — SIMULACIÓN MONTE CARLO (modelo Order-Up-To):
       Genera 10,000 escenarios de demanda ~ Normal(μ, σ · factor).
-      Evalúa la utilidad del período para cada escenario, bajo dos políticas:
-        A: pedir EOQ  |  B: pedir EOQ + stock de seguridad.
+      El EOQ define el costo de ordenar (pedidos/período = μ/EOQ).
+      La variable de política es el nivel de cobertura S:
+        A: S_A = μ (sin colchón)  |  B: S_B = μ + SS (con colchón).
       → Aquí está el segundo vínculo: σ del pronóstico define la incertidumbre.
 
     PASO 4 — REPORTE:
@@ -242,8 +243,8 @@ def analizar_completo(params: ParametrosAnalisis):
 
         comparacion = generar_reporte_comparativo(
             stats_a, stats_b,
-            resultado_sim["Q_a"],
-            resultado_sim["Q_b"],
+            resultado_sim["S_a"],
+            resultado_sim["S_b"],
         )
 
         # Respuesta estructurada: cada sección corresponde a un módulo del DSS
@@ -251,8 +252,8 @@ def analizar_completo(params: ParametrosAnalisis):
             "pronostico": resultado_pronostico,
             "inventario": resultado_inventario,
             "simulacion": {
-                "Q_a":           resultado_sim["Q_a"],
-                "Q_b":           resultado_sim["Q_b"],
+                "S_a":           resultado_sim["S_a"],
+                "S_b":           resultado_sim["S_b"],
                 "sigma_usada":   resultado_sim["sigma_usada"],
                 "n_iteraciones": resultado_sim["n_iteraciones"],
                 "escenario_a":   stats_a,

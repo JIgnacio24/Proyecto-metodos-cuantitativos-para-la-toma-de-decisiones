@@ -192,8 +192,8 @@ export class Dashboard implements OnDestroy {
 
     if (tab === 'pronostico') this.graficoRegresion(res.pronostico);
     else if (tab === 'simulacion') {
-      this.graficoHistograma('histogramaA', res.simulacion.histograma_a, 'Escenario A — EOQ', 'rgba(59,130,246,0.75)', 'rgb(59,130,246)');
-      this.graficoHistograma('histogramaB', res.simulacion.histograma_b, 'Escenario B — EOQ + Stock Seguridad', 'rgba(16,185,129,0.75)', 'rgb(16,185,129)');
+      this.graficoHistograma('histogramaA', res.simulacion.histograma_a, 'Escenario A — Sin Stock de Seguridad', 'rgba(59,130,246,0.75)', 'rgb(59,130,246)');
+      this.graficoHistograma('histogramaB', res.simulacion.histograma_b, 'Escenario B — Con Stock de Seguridad', 'rgba(16,185,129,0.75)', 'rgb(16,185,129)');
       this.graficoCDF('graficoCDF', res.simulacion.cdf_a, res.simulacion.cdf_b);
     }
   }

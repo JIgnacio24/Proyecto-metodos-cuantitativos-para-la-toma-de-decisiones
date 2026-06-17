@@ -142,66 +142,78 @@ def calcular_distribucion_acumulada(
     }
 
 
+def _mejor_es(val_a: float, val_b: float, *, mayor_es_mejor: bool) -> str:
+    """
+    Retorna 'A', 'B' o '—' según qué escenario tiene el mejor valor.
+    Los empates se marcan con '—' en lugar de asignar ganador arbitrario.
+    """
+    if val_a == val_b:
+        return "—"
+    if mayor_es_mejor:
+        return "A" if val_a > val_b else "B"
+    return "A" if val_a < val_b else "B"
+
+
 def generar_reporte_comparativo(
     stats_a: dict,
     stats_b: dict,
-    Q_a: float,
-    Q_b: float,
+    S_a: float,
+    S_b: float,
 ) -> dict:
     """
     Genera la tabla comparativa A vs B y una recomendación textual.
 
     Compara ambas políticas en todas las dimensiones relevantes para
-    que el gerente tome una decisión informada sobre cuánto pedir.
+    que el gerente tome una decisión informada sobre el nivel de cobertura.
 
     Parámetros
     ----------
-    stats_a : estadísticas del Escenario A (EOQ sin stock de seguridad)
-    stats_b : estadísticas del Escenario B (EOQ + stock de seguridad)
-    Q_a, Q_b: cantidades pedidas en cada escenario
+    stats_a : estadísticas del Escenario A (cobertura = demanda pronosticada)
+    stats_b : estadísticas del Escenario B (cobertura = demanda + stock seguridad)
+    S_a, S_b: nivel de cobertura (order-up-to level) de cada escenario
     """
     tabla = [
         {
-            "metrica": "Cantidad a Pedir (unidades)",
-            "escenario_a": round(Q_a, 0),
-            "escenario_b": round(Q_b, 0),
-            "mejor": "A" if Q_a < Q_b else "B",
-            "nota": "Menor cantidad → menor costo de mantener, mayor riesgo de ruptura",
+            "metrica": "Nivel de Cobertura S (unidades)",
+            "escenario_a": round(S_a, 0),
+            "escenario_b": round(S_b, 0),
+            "mejor": _mejor_es(S_a, S_b, mayor_es_mejor=False),
+            "nota": "S_A = demanda pronosticada; S_B = S_A + stock de seguridad",
         },
         {
             "metrica": "Utilidad Esperada (CRC)",
             "escenario_a": stats_a["media"],
             "escenario_b": stats_b["media"],
-            "mejor": "A" if stats_a["media"] >= stats_b["media"] else "B",
+            "mejor": _mejor_es(stats_a["media"], stats_b["media"], mayor_es_mejor=True),
             "nota": "Promedio de los 10,000 escenarios simulados",
         },
         {
             "metrica": "Desviación Estándar (CRC)",
             "escenario_a": stats_a["desviacion_std"],
             "escenario_b": stats_b["desviacion_std"],
-            "mejor": "A" if stats_a["desviacion_std"] <= stats_b["desviacion_std"] else "B",
+            "mejor": _mejor_es(stats_a["desviacion_std"], stats_b["desviacion_std"], mayor_es_mejor=False),
             "nota": "Menor desviación = resultado más predecible (menos riesgo)",
         },
         {
             "metrica": "VaR al 95% (CRC)",
             "escenario_a": stats_a["var_95"],
             "escenario_b": stats_b["var_95"],
-            "mejor": "A" if stats_a["var_95"] >= stats_b["var_95"] else "B",
+            "mejor": _mejor_es(stats_a["var_95"], stats_b["var_95"], mayor_es_mejor=True),
             "nota": "Pérdida máxima esperada en el peor 5% de los escenarios",
         },
         {
             "metrica": "Probabilidad de Éxito (%)",
             "escenario_a": stats_a["prob_exito"],
             "escenario_b": stats_b["prob_exito"],
-            "mejor": "A" if stats_a["prob_exito"] >= stats_b["prob_exito"] else "B",
+            "mejor": _mejor_es(stats_a["prob_exito"], stats_b["prob_exito"], mayor_es_mejor=True),
             "nota": "% de escenarios donde la utilidad es positiva",
         },
         {
             "metrica": "Probabilidad de Ruptura de Stock (%)",
             "escenario_a": stats_a["prob_ruptura"],
             "escenario_b": stats_b["prob_ruptura"],
-            "mejor": "A" if stats_a["prob_ruptura"] <= stats_b["prob_ruptura"] else "B",
-            "nota": "% de escenarios donde la demanda supera el inventario",
+            "mejor": _mejor_es(stats_a["prob_ruptura"], stats_b["prob_ruptura"], mayor_es_mejor=False),
+            "nota": "% de escenarios donde la demanda supera el nivel de cobertura",
         },
     ]
 
@@ -215,27 +227,37 @@ def generar_reporte_comparativo(
 
 def _generar_recomendacion(stats_a: dict, stats_b: dict) -> str:
     """
-    Cuenta cuántos de los 3 criterios clave gana el Escenario A.
-    Si gana 2 o más → A es preferible; de lo contrario → B.
+    Compara A y B en 3 criterios clave con comparación estricta (sin empates).
+    Si un escenario gana 2 o más criterios → es el recomendado.
     """
     puntos_a = sum([
-        stats_a["media"]        >= stats_b["media"],         # mayor utilidad esperada
-        stats_a["var_95"]       >= stats_b["var_95"],        # mejor VaR (menos pérdida)
-        stats_a["prob_ruptura"] <= stats_b["prob_ruptura"],  # menor riesgo de ruptura
+        stats_a["media"]        > stats_b["media"],          # mayor utilidad esperada
+        stats_a["var_95"]       > stats_b["var_95"],         # mejor VaR (menos pérdida)
+        stats_a["prob_ruptura"] < stats_b["prob_ruptura"],   # menor riesgo de ruptura
+    ])
+    puntos_b = sum([
+        stats_b["media"]        > stats_a["media"],
+        stats_b["var_95"]       > stats_a["var_95"],
+        stats_b["prob_ruptura"] < stats_a["prob_ruptura"],
     ])
 
     if puntos_a >= 2:
         return (
-            "El Escenario A (EOQ sin stock de seguridad) domina en la mayoría "
+            "El Escenario A (cobertura sin stock de seguridad) domina en la mayoría "
             "de los indicadores. Es la opción más eficiente en costo, aunque "
             "implica mayor riesgo de quedarse sin inventario. Recomendado si el "
             "costo de una venta perdida es bajo o si la demanda es muy predecible."
         )
-    else:
+    if puntos_b >= 2:
         return (
-            "El Escenario B (EOQ + stock de seguridad) es preferible según la "
-            "mayoría de los indicadores de riesgo. Aunque su costo de mantener "
-            "es mayor, ofrece mayor protección ante picos de demanda. Recomendado "
-            "si el costo de una ruptura de stock (reputación, clientes perdidos) "
-            "supera el costo adicional de mantener el inventario extra."
+            "El Escenario B (cobertura con stock de seguridad) es preferible según la "
+            "mayoría de los indicadores de riesgo. Aunque mantiene más inventario, "
+            "ofrece mayor protección ante picos de demanda. Recomendado si el costo "
+            "de una ruptura de stock (reputación, clientes perdidos) supera el costo "
+            "adicional de mantener el inventario extra."
         )
+    return (
+        "Los escenarios están equilibrados en los criterios principales. "
+        "La decisión depende de la tolerancia al riesgo: prefiera A si prioriza "
+        "eficiencia en costo, y B si prioriza continuidad del servicio al cliente."
+    )

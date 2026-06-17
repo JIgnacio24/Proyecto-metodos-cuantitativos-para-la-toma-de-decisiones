@@ -266,8 +266,8 @@
           </div>
           <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
             <p class="text-xs text-gray-400 uppercase tracking-wide">Lote Óptimo (EOQ)</p>
-            <p class="text-2xl font-bold text-blue-700 mt-1">{{ num(res.inventario.eoq) }}</p>
-            <p class="text-xs text-gray-400 mt-1">+ {{ num(res.inventario.stock_seguridad) }} SS · {{ num(res.inventario.costos.num_pedidos) }} pedidos</p>
+            <p class="text-2xl font-bold text-blue-700 mt-1">{{ num(res.inventario.eoq) }} uds</p>
+            <p class="text-xs text-gray-400 mt-1">{{ res.inventario.costos.num_pedidos.toFixed(2) }} pedidos/período · SS={{ num(res.inventario.stock_seguridad) }}</p>
           </div>
           <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
             <p class="text-xs text-gray-400 uppercase tracking-wide">Utilidad Esperada A</p>
@@ -356,11 +356,16 @@
           <div class="grid gap-5">
 
             <!-- Cards de resultados EOQ -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
                 <p class="text-xs text-blue-500 uppercase tracking-wide">EOQ Óptimo</p>
                 <p class="text-3xl font-bold text-blue-800 mt-1">{{ num(res.inventario.eoq) }}</p>
                 <p class="text-xs text-blue-400 mt-1">unidades por pedido</p>
+              </div>
+              <div class="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                <p class="text-xs text-orange-600 uppercase tracking-wide">Pedidos por Período</p>
+                <p class="text-3xl font-bold text-orange-700 mt-1">{{ res.inventario.costos.num_pedidos.toFixed(2) }}</p>
+                <p class="text-xs text-orange-500 mt-1">órdenes a emitir · D / EOQ</p>
               </div>
               <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <p class="text-xs text-amber-600 uppercase tracking-wide">Stock de Seguridad</p>
@@ -388,7 +393,9 @@
               <table class="w-full text-sm">
                 <tbody>
                   <tr class="border-b border-gray-100">
-                    <td class="px-5 py-3 text-gray-600">Costo de ordenar <span class="text-gray-400 text-xs">— (D/EOQ) × S</span></td>
+                    <td class="px-5 py-3 text-gray-600">
+                      Costo de ordenar <span class="text-gray-400 text-xs">— {{ res.inventario.costos.num_pedidos.toFixed(2) }} pedidos × S</span>
+                    </td>
                     <td class="px-5 py-3 text-right font-medium">{{ crc(res.inventario.costos.costo_ordenar) }}</td>
                   </tr>
                   <tr class="border-b border-gray-100 bg-gray-50">
@@ -441,12 +448,12 @@
             <!-- Métricas de los escenarios -->
             <div class="grid grid-cols-2 gap-5">
               @for (esc of [
-                { nombre: 'Escenario A — EOQ sin Stock Seguridad', stats: res.simulacion.escenario_a, Q: res.simulacion.Q_a, color: 'blue' },
-                { nombre: 'Escenario B — EOQ + Stock Seguridad',   stats: res.simulacion.escenario_b, Q: res.simulacion.Q_b, color: 'green' }
+                { nombre: 'Escenario A — Sin Stock de Seguridad', stats: res.simulacion.escenario_a, S: res.simulacion.S_a, color: 'blue' },
+                { nombre: 'Escenario B — Con Stock de Seguridad', stats: res.simulacion.escenario_b, S: res.simulacion.S_b, color: 'green' }
               ]; track esc.nombre) {
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                   <div [class]="'px-4 py-3 text-white text-sm font-semibold ' + (esc.color === 'blue' ? 'bg-blue-600' : 'bg-emerald-600')">
-                    {{ esc.nombre }} · Q = {{ num(esc.Q) }} uds
+                    {{ esc.nombre }} · S = {{ num(esc.S) }} uds
                   </div>
                   <div class="p-4 grid grid-cols-2 gap-3 text-sm">
                     <div>
@@ -543,7 +550,9 @@
                       <td class="px-5 py-3 text-center">
                         <span [class]="fila.mejor === 'A'
                           ? 'bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 text-xs font-bold'
-                          : 'bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5 text-xs font-bold'">
+                          : fila.mejor === 'B'
+                            ? 'bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5 text-xs font-bold'
+                            : 'bg-gray-100 text-gray-500 rounded-full px-2 py-0.5 text-xs font-bold'">
                           {{ fila.mejor }}
                         </span>
                       </td>

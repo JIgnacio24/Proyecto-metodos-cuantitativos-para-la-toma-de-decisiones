@@ -4,20 +4,29 @@ Motor de Simulación — Monte Carlo
 Simula 10,000 escenarios de demanda aleatoria para medir el RIESGO del
 sistema de inventario bajo incertidumbre.
 
-Metodología:
-  1. En cada iteración se genera una demanda aleatoria D_sim ~ Normal(μ, σ)
-     donde μ = demanda pronosticada y σ = error estándar del pronóstico.
-  2. Se calcula la utilidad del período para dos políticas de inventario:
-       Escenario A: pedir EOQ (lote económico sin colchón de seguridad)
-       Escenario B: pedir EOQ + Stock de Seguridad (política conservadora)
-  3. Se acumulan 10,000 utilidades por escenario, formando una distribución
-     empírica que permite medir probabilidades de pérdida y ruptura de stock.
+Modelo corregido — Order-Up-To (nivel de cobertura S):
+  En cada período la empresa decide hasta qué nivel S cubre su inventario.
+  La variable de política NO es el lote EOQ, sino el nivel de cobertura:
+    · Escenario A: S_A = demanda pronosticada (μ)     → sin colchón
+    · Escenario B: S_B = demanda pronosticada + SS     → con colchón
+
+  El EOQ define el costo de ordenar:
+    pedidos_por_período = demanda_pronosticada / EOQ
+
+  Por cada iteración (demanda d ~ Normal(μ, σ)):
+    vendido  = min(d, S)
+    sobrante = max(S − d, 0)
+    perdido  = max(d − S, 0)
+    utilidad = vendido × margen
+               − sobrante × costo_mantener
+               − pedidos_por_período × costo_por_pedido
+               − perdido × costo_ruptura
 
 Por qué distribución Normal:
-  - La demanda de repuestos en un período agrega muchas ventas individuales
-    independientes → el Teorema Central del Límite justifica la Normal.
-  - La desviación NO es arbitraria: proviene del modelo de regresión lineal,
-    lo que hace que la simulación sea trazable a los datos reales.
+  La demanda de repuestos en un período agrega muchas ventas individuales
+  independientes → el Teorema Central del Límite justifica la Normal.
+  La desviación σ proviene del modelo de regresión lineal, lo que hace
+  que la simulación sea trazable a los datos reales.
 """
 
 import numpy as np
@@ -38,14 +47,14 @@ def ejecutar_simulacion(
     semilla: int = 42,
 ) -> dict:
     """
-    Ejecuta la simulación Monte Carlo completa.
+    Ejecuta la simulación Monte Carlo con el modelo Order-Up-To.
 
     Parámetros
     ----------
     demanda_pronosticada : μ — media de la distribución de demanda (del pronóstico)
     error_estandar       : σ — desviación estándar (del pronóstico)
-    eoq                  : cantidad a pedir en el Escenario A
-    stock_seguridad      : unidades adicionales para el Escenario B
+    eoq                  : lote económico (define el costo de ordenar, no el stock)
+    stock_seguridad      : colchón de inventario para el Escenario B
     precio_venta         : CRC por unidad vendida
     costo_unitario       : CRC por unidad comprada
     costo_por_pedido     : CRC fijo por orden emitida
@@ -53,131 +62,98 @@ def ejecutar_simulacion(
     costo_ruptura        : CRC por unidad de demanda no satisfecha (venta perdida)
     factor_incertidumbre : multiplicador sobre σ (para análisis de sensibilidad)
     n_iteraciones        : número de escenarios Monte Carlo (mínimo 10,000)
-    semilla              : semilla del generador aleatorio para reproducibilidad
+    semilla              : semilla aleatoria para reproducibilidad
 
     Retorna
     -------
     dict con utilidades de A y B, indicadores de ruptura y parámetros usados
     """
-    # Generador de números aleatorios con semilla fija → resultados reproducibles
-    rng = np.random.default_rng(semilla)
+    np.random.seed(semilla)
 
-    # Desviación estándar efectiva de la simulación
-    # El factor_incertidumbre permite al gerente preguntar: "¿qué pasa si la
-    # demanda es un 20% más volátil de lo que el modelo sugiere?"
+    # Desviación estándar efectiva: el factor permite preguntar
+    # "¿qué pasa si la demanda es un 20% más volátil de lo que sugiere el modelo?"
     sigma_efectiva = error_estandar * factor_incertidumbre
 
-    # ------------------------------------------------------------------
-    # Generación de escenarios de demanda
-    # ------------------------------------------------------------------
-    # Distribución Normal: la mayoría de escenarios cercanos a la media,
-    # con colas que capturan tanto demanda muy baja como muy alta
-    demandas_simuladas = rng.normal(
-        loc=demanda_pronosticada,
-        scale=sigma_efectiva,
-        size=n_iteraciones,
-    )
-    # Restricción: la demanda no puede ser negativa (no hay "devoluciones" masivas)
-    demandas_simuladas = np.maximum(demandas_simuladas, 0.0)
+    # Margen bruto por unidad vendida
+    margen = precio_venta - costo_unitario
+
+    # El EOQ determina cuántas órdenes se emiten en el período,
+    # y por tanto el costo de ordenar total.
+    pedidos_por_periodo = demanda_pronosticada / max(eoq, 1.0)
 
     # ------------------------------------------------------------------
-    # Escenario A: pedir EOQ (sin stock de seguridad)
-    # Política agresiva → menor costo de mantener, mayor riesgo de ruptura
+    # Niveles de cobertura (order-up-to level S)
     # ------------------------------------------------------------------
-    Q_a = max(float(eoq), 1.0)
+    # A: cubre exactamente la demanda esperada → cualquier demanda sobre μ genera ruptura
+    S_a = float(demanda_pronosticada)
+    # B: cubre demanda esperada + colchón de seguridad → absorbe variabilidad hasta 95%
+    S_b = float(demanda_pronosticada + stock_seguridad)
+
+    # ------------------------------------------------------------------
+    # Generación de escenarios de demanda (misma muestra para ambos escenarios)
+    # ------------------------------------------------------------------
+    demandas = np.random.normal(loc=demanda_pronosticada, scale=sigma_efectiva, size=n_iteraciones)
+    # La demanda no puede ser negativa
+    demandas = np.maximum(demandas, 0.0)
+
+    # ------------------------------------------------------------------
+    # Evaluar utilidad en cada escenario para cada política
+    # ------------------------------------------------------------------
     utilidades_a, rupturas_a = _calcular_utilidades_vectorizado(
-        demandas_simuladas, Q_a,
-        precio_venta, costo_unitario, costo_por_pedido, costo_mantener, costo_ruptura,
+        demandas, S_a, margen, costo_mantener, pedidos_por_periodo, costo_por_pedido, costo_ruptura,
     )
-
-    # ------------------------------------------------------------------
-    # Escenario B: pedir EOQ + Stock de Seguridad
-    # Política conservadora → mayor costo de mantener, menor riesgo de ruptura
-    # ------------------------------------------------------------------
-    Q_b = max(float(eoq + stock_seguridad), 1.0)
     utilidades_b, rupturas_b = _calcular_utilidades_vectorizado(
-        demandas_simuladas, Q_b,
-        precio_venta, costo_unitario, costo_por_pedido, costo_mantener, costo_ruptura,
+        demandas, S_b, margen, costo_mantener, pedidos_por_periodo, costo_por_pedido, costo_ruptura,
     )
 
     return {
         "utilidades_a": utilidades_a.tolist(),
         "utilidades_b": utilidades_b.tolist(),
-        "rupturas_a": int(np.sum(rupturas_a)),
-        "rupturas_b": int(np.sum(rupturas_b)),
-        "Q_a": round(Q_a, 2),
-        "Q_b": round(Q_b, 2),
-        "sigma_usada": round(float(sigma_efectiva), 2),
+        "rupturas_a":   int(np.sum(rupturas_a)),
+        "rupturas_b":   int(np.sum(rupturas_b)),
+        "S_a":          round(S_a, 2),
+        "S_b":          round(S_b, 2),
+        "sigma_usada":  round(float(sigma_efectiva), 2),
         "n_iteraciones": n_iteraciones,
     }
 
 
 def _calcular_utilidades_vectorizado(
     demandas: np.ndarray,
-    cantidad_pedido: float,
-    precio_venta: float,
-    costo_unitario: float,
-    costo_por_pedido: float,
+    S: float,
+    margen: float,
     costo_mantener: float,
+    pedidos_por_periodo: float,
+    costo_por_pedido: float,
     costo_ruptura: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    Calcula la utilidad de cada escenario para un nivel de inventario fijo.
+    Calcula la utilidad de cada escenario dado el nivel de cobertura S.
 
-    Modelo de inventario de un solo período:
-      - Se ordena Q unidades al comienzo del período (decisión fija).
-      - Se realiza la demanda D (aleatoria).
-      - Se vende min(D, Q): la empresa no puede vender más de lo que tiene.
-      - El sobrante max(0, Q−D) genera costo de mantenimiento.
-      - La faltante max(0, D−Q) genera costo de ruptura (venta perdida + penalización).
+    Modelo Order-Up-To de un período:
+      · La empresa cubre hasta S unidades disponibles.
+      · Se realiza la demanda aleatoria d.
+      · vendido  = min(d, S) — no se puede vender más de lo disponible.
+      · sobrante = max(S − d, 0) — inventario no vendido, genera costo de mantener.
+      · perdido  = max(d − S, 0) — demanda insatisfecha, genera costo de ruptura.
+      · El costo de ordenar se paga independientemente de la demanda realizada.
 
-    Utilidad = Ingresos − Costo de compra − Costo de mantener − Costo ruptura − Costo pedido
-
-    Parámetros
-    ----------
-    demandas      : array de n_iteraciones demandas simuladas
-    cantidad_pedido: Q — unidades pedidas según la política evaluada
-    (resto)       : parámetros de costo y precio en CRC
-
-    Retorna
-    -------
-    (utilidades, hay_ruptura) — arrays de longitud n_iteraciones
+    Utilidad = vendido × margen
+               − sobrante × costo_mantener
+               − pedidos_por_período × costo_por_pedido
+               − perdido × costo_ruptura
     """
-    # Unidades efectivamente vendidas (no se puede vender más de lo disponible)
-    unidades_vendidas = np.minimum(demandas, cantidad_pedido)
+    vendido  = np.minimum(demandas, S)
+    sobrante = np.maximum(S - demandas, 0.0)
+    perdido  = np.maximum(demandas - S, 0.0)
 
-    # Inventario sobrante al cierre del período (no vendido)
-    sobrante = np.maximum(0.0, cantidad_pedido - demandas)
-
-    # Unidades de demanda insatisfecha (clientes que no pudieron comprar)
-    ruptura = np.maximum(0.0, demandas - cantidad_pedido)
-
-    # --- Ingresos ---
-    ingresos = unidades_vendidas * precio_venta
-
-    # --- Costos ---
-    # Costo de comprar el lote: se paga por todas las Q unidades ordenadas
-    costo_compra = cantidad_pedido * costo_unitario
-
-    # Costo de mantener el sobrante: penalización por inmovilizar capital en inventario
-    costo_mantener_total = sobrante * costo_mantener
-
-    # Costo de ruptura de stock: penalización por venta perdida + daño a la reputación
-    costo_ruptura_total = ruptura * costo_ruptura
-
-    # Costo fijo del pedido: aplica siempre que se emite una orden (costo administrativo)
-    costo_pedido_total = np.full(len(demandas), costo_por_pedido)
-
-    # Utilidad neta del período
     utilidades = (
-        ingresos
-        - costo_compra
-        - costo_mantener_total
-        - costo_ruptura_total
-        - costo_pedido_total
+        vendido  * margen
+        - sobrante * costo_mantener
+        - pedidos_por_periodo * costo_por_pedido
+        - perdido  * costo_ruptura
     )
 
-    # Indicador binario: ¿hubo ruptura en este escenario?
-    hay_ruptura = ruptura > 0.0
+    hay_ruptura = perdido > 0.0
 
     return utilidades, hay_ruptura
