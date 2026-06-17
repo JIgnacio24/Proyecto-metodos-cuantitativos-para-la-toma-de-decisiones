@@ -35,6 +35,9 @@ export class Dashboard implements OnDestroy {
   nIteraciones         = 10000;
   factorIncertidumbre  = 1.0;
 
+  // Errores de validación por campo (clave = nombre del campo)
+  errores: Record<string, string> = {};
+
   // Instancias activas de Chart.js, agrupadas por id de canvas
   private readonly graficos = new Map<string, Chart>();
 
@@ -78,8 +81,8 @@ export class Dashboard implements OnDestroy {
 
   /** Ejecuta el análisis completo llamando al endpoint /api/analizar. */
   analizar(): void {
+    if (!this.validarFormulario()) return;
     const demandas = this.parsearDemandas();
-    if (!demandas) return;
 
     const params: ParametrosAnalisis = {
       demanda_historica:    demandas,
@@ -149,11 +152,37 @@ export class Dashboard implements OnDestroy {
 
   // ── Lógica interna ──────────────────────────────────────────────────────────
 
-  private parsearDemandas(): number[] | null {
-    if (this.demandasPorPeriodo.length < 3) {
-      this.error.set('Se necesitan al menos 3 períodos de demanda histórica.');
-      return null;
-    }
+  private validarFormulario(): boolean {
+    const e: Record<string, string> = {};
+
+    if (this.demandasPorPeriodo.length < 3)
+      e['demanda'] = 'Se necesitan al menos 3 períodos de demanda histórica.';
+
+    if (!this.costoUnitario || this.costoUnitario <= 0)
+      e['costoUnitario'] = 'Campo obligatorio, debe ser mayor a 0.';
+
+    if (!this.precioVenta || this.precioVenta <= 0)
+      e['precioVenta'] = 'Campo obligatorio, debe ser mayor a 0.';
+    else if (this.costoUnitario > 0 && this.precioVenta <= this.costoUnitario)
+      e['precioVenta'] = 'Debe ser mayor al costo unitario.';
+
+    if (!this.costoPorPedido || this.costoPorPedido <= 0)
+      e['costoPorPedido'] = 'Campo obligatorio, debe ser mayor a 0.';
+
+    if (!this.costoMantener || this.costoMantener <= 0)
+      e['costoMantener'] = 'Campo obligatorio, debe ser mayor a 0.';
+
+    if (!this.costoRuptura || this.costoRuptura <= 0)
+      e['costoRuptura'] = 'Campo obligatorio, debe ser mayor a 0.';
+
+    if (!this.leadTime || this.leadTime < 1)
+      e['leadTime'] = 'Mínimo 1 período de reposición.';
+
+    this.errores = e;
+    return Object.keys(e).length === 0;
+  }
+
+  private parsearDemandas(): number[] {
     return this.demandasPorPeriodo.map(d => Math.max(0, Number(d) || 0));
   }
 

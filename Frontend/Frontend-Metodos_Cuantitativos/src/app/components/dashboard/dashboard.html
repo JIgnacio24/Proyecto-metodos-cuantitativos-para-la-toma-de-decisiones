@@ -49,11 +49,16 @@
                 (ngModelChange)="actualizarDemanda($index, $event)"
                 min="0"
                 placeholder="0"
-                class="min-w-0 flex-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500"
+                class="min-w-0 flex-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border focus:outline-none focus:border-blue-500"
+                [class.border-gray-700]="!errores['demanda']"
+                [class.border-red-500]="errores['demanda']"
               />
             </div>
           }
         </div>
+        @if (errores['demanda']) {
+          <p class="text-red-400 text-xs mt-2">⚠ {{ errores['demanda'] }}</p>
+        }
       </section>
 
       <!-- ── Parámetros Financieros ── -->
@@ -64,33 +69,58 @@
         <div class="grid gap-3">
 
           <div>
-            <label class="text-xs text-gray-400">Costo unitario (compra)</label>
+            <label class="text-xs text-gray-400">Costo unitario (compra) <span class="text-red-400">*</span></label>
             <input type="number" [(ngModel)]="costoUnitario" min="1"
-              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500" />
+              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border focus:outline-none focus:border-blue-500"
+              [class.border-gray-700]="!errores['costoUnitario']"
+              [class.border-red-500]="errores['costoUnitario']" />
+            @if (errores['costoUnitario']) {
+              <p class="text-red-400 text-xs mt-1">⚠ {{ errores['costoUnitario'] }}</p>
+            }
           </div>
 
           <div>
-            <label class="text-xs text-gray-400">Precio de venta</label>
+            <label class="text-xs text-gray-400">Precio de venta <span class="text-red-400">*</span></label>
             <input type="number" [(ngModel)]="precioVenta" min="1"
-              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500" />
+              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border focus:outline-none focus:border-blue-500"
+              [class.border-gray-700]="!errores['precioVenta']"
+              [class.border-red-500]="errores['precioVenta']" />
+            @if (errores['precioVenta']) {
+              <p class="text-red-400 text-xs mt-1">⚠ {{ errores['precioVenta'] }}</p>
+            }
           </div>
 
           <div>
-            <label class="text-xs text-gray-400">Costo por pedido (orden)</label>
+            <label class="text-xs text-gray-400">Costo por pedido (orden) <span class="text-red-400">*</span></label>
             <input type="number" [(ngModel)]="costoPorPedido" min="1"
-              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500" />
+              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border focus:outline-none focus:border-blue-500"
+              [class.border-gray-700]="!errores['costoPorPedido']"
+              [class.border-red-500]="errores['costoPorPedido']" />
+            @if (errores['costoPorPedido']) {
+              <p class="text-red-400 text-xs mt-1">⚠ {{ errores['costoPorPedido'] }}</p>
+            }
           </div>
 
           <div>
-            <label class="text-xs text-gray-400">Costo de mantener (por unidad)</label>
+            <label class="text-xs text-gray-400">Costo de mantener (por unidad) <span class="text-red-400">*</span></label>
             <input type="number" [(ngModel)]="costoMantener" min="1"
-              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500" />
+              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border focus:outline-none focus:border-blue-500"
+              [class.border-gray-700]="!errores['costoMantener']"
+              [class.border-red-500]="errores['costoMantener']" />
+            @if (errores['costoMantener']) {
+              <p class="text-red-400 text-xs mt-1">⚠ {{ errores['costoMantener'] }}</p>
+            }
           </div>
 
           <div>
-            <label class="text-xs text-gray-400">Costo de ruptura (por unidad)</label>
+            <label class="text-xs text-gray-400">Costo de ruptura (por unidad) <span class="text-red-400">*</span></label>
             <input type="number" [(ngModel)]="costoRuptura" min="1"
-              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500" />
+              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border focus:outline-none focus:border-blue-500"
+              [class.border-gray-700]="!errores['costoRuptura']"
+              [class.border-red-500]="errores['costoRuptura']" />
+            @if (errores['costoRuptura']) {
+              <p class="text-red-400 text-xs mt-1">⚠ {{ errores['costoRuptura'] }}</p>
+            }
           </div>
         </div>
       </section>
@@ -102,9 +132,14 @@
         </h2>
         <div class="grid gap-3">
           <div>
-            <label class="text-xs text-gray-400">Lead time (períodos de reposición)</label>
+            <label class="text-xs text-gray-400">Lead time (períodos de reposición) <span class="text-red-400">*</span></label>
             <input type="number" [(ngModel)]="leadTime" min="1" max="12"
-              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none focus:border-blue-500" />
+              class="w-full mt-1 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm border focus:outline-none focus:border-blue-500"
+              [class.border-gray-700]="!errores['leadTime']"
+              [class.border-red-500]="errores['leadTime']" />
+            @if (errores['leadTime']) {
+              <p class="text-red-400 text-xs mt-1">⚠ {{ errores['leadTime'] }}</p>
+            }
           </div>
           <div>
             <label class="text-xs text-gray-400">Nivel de servicio: {{ pct(nivelServicio * 100) }}</label>
